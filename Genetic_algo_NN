@@ -1,0 +1,110 @@
+import torch
+import torch.nn as nn
+import numpy as np
+import random
+from sklearn.metrics import confusion_matrix
+#fitness measure
+from sklearn.metrics import accuracy_score
+%config Completer.use_jedi = False
+class GEN_algo_NN:
+    def __init__(self):
+        pass
+    def pop_gen(self):
+        population=[]
+        for i in range(10): #determine the population size
+            population.append(np.random.rand(6))
+        for i in range(len(population)):
+            population[i]=torch.tensor(population[i],dtype=torch.float32)
+        for i in range(len(population)):
+            for j in range(len(population[i])):
+                if population[i][j]<0.49:
+                    population[i][j]=0
+                else:
+                    population[i][j]=1
+        return population
+
+
+    def forward_pass(self):
+        self.h=[torch.zeros(6) for i in range(5)]
+        self.a=[torch.zeros(6) for i in range(5)]
+        self.w=[torch.tensor(6) for i in range(5)]
+        for i in range(len(self.w)):
+            self.w[i]=torch.tensor(self.w[i],requires_grad=True,dtype=torch.float32)
+            self.b=[torch.tensor(6) for i in range(5)]
+        for i in range(len(self.b)):
+            self.b[i]=torch.tensor(self.b[i],requires_grad=True,dtype=torch.float32)
+        # for i in range(5):
+        #     print(self.b[i]+self.w[i]*self.h[i])
+        for i in range(len(self.pop_gen())):
+            self.h[0]=self.pop_gen()[i]
+            for k in range(1,3):
+                self.a[k]=self.b[k]+ self.w[k]*self.h[k-1]
+                self.h[k]=torch.relu(self.a[k])
+            self.a[3]=self.b[3]+self.w[3]*self.h[2]
+            y_hat=torch.sigmoid(self.a[3])
+        return y_hat
+           
+    def fitness_eval(self):
+        a=[]
+        for j in range(len(self.pop_gen())):
+            a.append(accuracy_score(y_true=self.pop_gen()[j],y_pred=self.forward_pass().detach()))
+        return a
+    def stopping_criteria(self):
+        if all(x<0.3 for x in self.fitness_eval())==True:
+            return True
+        else:
+            return False
+    def selection_procedure(self):
+        a=[]
+        b=[]
+        for x in random.choices(self.pop_gen(),k=4):
+            a.append(accuracy_score(x,self.forward_pass().detach()))
+            b.append(x)
+        for i in range(len(a)):
+            for j in range(len(a)-i-1):
+                if a[j]>a[j+1]:
+                   b[j],b[j+1]=b[j+1],b[j]
+                    #    a[j],a[j+1]=a[j+1],a[j]
+                    # d.append(b[0])
+        return b[0]
+    def tournament_selection(self):
+        e=[]
+        for times in range(5):
+            e.append(self.selection_procedure())
+        return e
+        
+    def cross_over(self):
+        for x in self.tournament_selection():
+            for y in self.tournament_selection():
+                    x[0:3]=y[3:6]
+                    y[0:3]=x[3:6]
+                
+        return self.tournament_selection()
+    def mutation(self):
+        for x in self.cross_over():
+            for i in range(len(x)):
+                if i==random.randrange(0,6):
+                    if x[i]==1:
+                        x[i]=0
+                    else:
+                        x[i]=1
+        return self.cross_over()
+
+def main():
+    c=GEN_algo_NN()
+    generation=0
+    while c.stopping_criteria()==False:
+        new=[]
+        generation=generation+1
+        a=c.pop_gen()
+        c.forward_pass()
+        c.tournament_selection()
+        c.cross_over()
+        for x in c.mutation():
+            new.append(x)
+        a=new
+        print(f'for{generation}-th generation,the list is {new}')
+        
+if __name__=='__main__':
+    main()
+
